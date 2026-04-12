@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-trash_root="${XDG_DATA_HOME:-$HOME/.local/share}/Trash"
+DEFAULT_CONFIG_PATH="${XDG_CONFIG_HOME:-${HOME}/.config}/wsl-drive-guard/user.conf"
+
+if [[ -f "$DEFAULT_CONFIG_PATH" ]]; then
+  # shellcheck disable=SC1090
+  . "$DEFAULT_CONFIG_PATH"
+fi
+
+trash_root="${WSL_GUARD_TRASH_ROOT:-${XDG_DATA_HOME:-$HOME/.local/share}/Trash}"
 info_dir="${trash_root}/info"
 files_dir="${trash_root}/files"
 

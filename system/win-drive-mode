@@ -1,6 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_CONFIG_PATH="/etc/wsl-drive-guard/system.conf"
+FALLBACK_CONFIG_PATH="${SCRIPT_DIR}/system.conf"
+
+load_config() {
+  local config_path=""
+
+  if [[ -f "$DEFAULT_CONFIG_PATH" ]]; then
+    config_path="$DEFAULT_CONFIG_PATH"
+  elif [[ -f "$FALLBACK_CONFIG_PATH" ]]; then
+    config_path="$FALLBACK_CONFIG_PATH"
+  else
+    printf '%s\n' "Missing system config." >&2
+    exit 1
+  fi
+
+  # shellcheck disable=SC1090
+  . "$config_path"
+}
+
 usage() {
   cat <<'EOF'
 Usage:
@@ -35,7 +55,10 @@ esac
 target_user="${SUDO_USER:-$USER}"
 uid_value="$(id -u "$target_user")"
 gid_value="$(id -g "$target_user")"
-common_opts="noatime,uid=${uid_value},gid=${gid_value},metadata,umask=22,fmask=11"
+
+load_config
+
+common_opts="${WSL_GUARD_DRVFS_OPTIONS},uid=${uid_value},gid=${gid_value}"
 
 is_mounted() {
   local mountpoint="$1"
@@ -51,7 +74,7 @@ for raw_drive in "$@"; do
   fi
 
   upper_drive="${drive^^}"
-  mountpoint="/mnt/${drive}"
+  mountpoint="${WSL_GUARD_MOUNT_ROOT%/}/${drive}"
 
   if [[ ! -d "$mountpoint" ]]; then
     sudo mkdir -p "$mountpoint"

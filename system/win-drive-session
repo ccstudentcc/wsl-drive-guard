@@ -1,6 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_CONFIG_PATH="/etc/wsl-drive-guard/system.conf"
+FALLBACK_CONFIG_PATH="${SCRIPT_DIR}/system.conf"
+
+load_config() {
+  local config_path=""
+
+  if [[ -f "$DEFAULT_CONFIG_PATH" ]]; then
+    config_path="$DEFAULT_CONFIG_PATH"
+  elif [[ -f "$FALLBACK_CONFIG_PATH" ]]; then
+    config_path="$FALLBACK_CONFIG_PATH"
+  else
+    printf '%s\n' "Missing system config." >&2
+    exit 1
+  fi
+
+  # shellcheck disable=SC1090
+  . "$config_path"
+}
+
 usage() {
   cat <<'EOF'
 Usage:
@@ -28,6 +48,8 @@ if [[ "$mode" != "rw" ]]; then
   usage >&2
   exit 1
 fi
+
+load_config
 
 drives=()
 for raw_drive in "$@"; do

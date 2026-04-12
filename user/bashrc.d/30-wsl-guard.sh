@@ -1,10 +1,24 @@
 # WSL Windows-drive safety helpers for interactive shells.
 
+__wsl_guard_default_config_path="${XDG_CONFIG_HOME:-$HOME/.config}/wsl-drive-guard/user.conf"
+
+if [[ -f "$__wsl_guard_default_config_path" ]]; then
+  # shellcheck disable=SC1090
+  . "$__wsl_guard_default_config_path"
+fi
+
+: "${WSL_GUARD_ENABLE_PROMPT:=1}"
+: "${WSL_GUARD_ENABLE_SESSION_MARKER:=1}"
+: "${WSL_GUARD_ENABLE_COPY_MOVE_CONFIRM:=1}"
+: "${WSL_GUARD_ENABLE_SAFE_RM:=1}"
+: "${WSL_GUARD_WINDOWS_MOUNT_ROOT:=/mnt}"
+
 __WSL_GUARD_BASE_PS1="${__WSL_GUARD_BASE_PS1:-$PS1}"
+__WSL_GUARD_MOUNT_ROOT="${WSL_GUARD_WINDOWS_MOUNT_ROOT%/}"
 
 __wsl_guard_mount_mode() {
   local drive="$1"
-  local mountpoint="/mnt/${drive}"
+  local mountpoint="${__WSL_GUARD_MOUNT_ROOT}/${drive}"
 
   awk -v mp="$mountpoint" '
     $2 == mp {
@@ -30,12 +44,14 @@ __wsl_guard_prompt_prefix() {
   local mode
   local color
 
-  if [[ -n "${WSL_DRIVE_SESSION_DRIVES:-}" ]]; then
+  if ((WSL_GUARD_ENABLE_SESSION_MARKER)) && [[ -n "${WSL_DRIVE_SESSION_DRIVES:-}" ]]; then
     session_prefix="\\[\\033[1;31m\\][RW-SESSION:${WSL_DRIVE_SESSION_DRIVES^^}]\\[\\033[0m\\] "
   fi
 
-  if [[ "$PWD" =~ ^/mnt/([[:alpha:]])(/|$) ]]; then
-    drive="${BASH_REMATCH[1],,}"
+  if [[ "$PWD" == "$__WSL_GUARD_MOUNT_ROOT"/[[:alpha:]] || "$PWD" == "$__WSL_GUARD_MOUNT_ROOT"/[[:alpha:]]/* ]]; then
+    drive="${PWD#${__WSL_GUARD_MOUNT_ROOT}/}"
+    drive="${drive%%/*}"
+    drive="${drive,,}"
     mode="$(__wsl_guard_mount_mode "$drive")"
     color='33'
 
@@ -52,6 +68,11 @@ __wsl_guard_prompt_prefix() {
 
 __wsl_guard_update_prompt() {
   local prefix
+
+  if ((WSL_GUARD_ENABLE_PROMPT == 0)); then
+    PS1="${__WSL_GUARD_BASE_PS1}"
+    return
+  fi
 
   prefix="$(__wsl_guard_prompt_prefix)"
   PS1="${prefix}${__WSL_GUARD_BASE_PS1}"
@@ -88,7 +109,7 @@ __wsl_guard_is_windows_drive_path() {
   local resolved_path
 
   resolved_path="$(__wsl_guard_resolve_path "$1")"
-  [[ "$resolved_path" =~ ^/mnt/[[:alpha:]]($|/) ]]
+  [[ "$resolved_path" == "$__WSL_GUARD_MOUNT_ROOT"/[[:alpha:]] || "$resolved_path" == "$__WSL_GUARD_MOUNT_ROOT"/[[:alpha:]]/* ]]
 }
 
 __wsl_guard_confirm() {
@@ -211,17 +232,26 @@ __wsl_guard_warn_rm_targets() {
 }
 
 cp() {
-  __wsl_guard_warn_copy_target cp "$@" || return $?
+  if ((WSL_GUARD_ENABLE_COPY_MOVE_CONFIRM)); then
+    __wsl_guard_warn_copy_target cp "$@" || return $?
+  fi
   command cp "$@"
 }
 
 mv() {
-  __wsl_guard_warn_copy_target mv "$@" || return $?
+  if ((WSL_GUARD_ENABLE_COPY_MOVE_CONFIRM)); then
+    __wsl_guard_warn_copy_target mv "$@" || return $?
+  fi
   command mv "$@"
 }
 
 rm() {
   local trash_cmd="$HOME/.local/bin/safe-trash"
+
+  if ((WSL_GUARD_ENABLE_SAFE_RM == 0)); then
+    command rm "$@"
+    return
+  fi
 
   if [[ ! -x "$trash_cmd" ]]; then
     printf '%s\n' "safe-trash is missing: $trash_cmd" >&2
