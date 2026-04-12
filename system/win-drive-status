@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+printf "%-5s %-12s %-6s %s\n" "DRIVE" "MOUNTPOINT" "MODE" "SOURCE"
+
+for drive in {a..z}; do
+  mountpoint="/mnt/${drive}"
+  line="$(awk -v mp="$mountpoint" '$2 == mp && $3 == "9p" && $4 ~ /aname=drvfs;path=/ { print; exit }' /proc/mounts)"
+
+  if [[ -z "$line" ]]; then
+    continue
+  fi
+
+  opts="$(awk '{print $4}' <<<"$line")"
+  source_name="${drive^^}:\\"
+  mode="rw"
+
+  if [[ ",${opts}," == *,ro,* ]]; then
+    mode="ro"
+  fi
+
+  printf "%-5s %-12s %-6s %s\n" "${drive^^}" "$mountpoint" "$mode" "$source_name"
+done

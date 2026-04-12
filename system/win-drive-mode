@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage:
+  win-drive-mode ro <drive> [drive...]
+  win-drive-mode rw <drive> [drive...]
+
+Examples:
+  win-drive-mode rw c
+  win-drive-mode ro c
+  win-drive-mode rw d e
+EOF
+}
+
+if [[ $# -lt 2 ]]; then
+  usage >&2
+  exit 1
+fi
+
+mode="$1"
+shift
+
+case "$mode" in
+  ro|rw)
+    ;;
+  *)
+    echo "Invalid mode: $mode" >&2
+    usage >&2
+    exit 1
+    ;;
+esac
+
+target_user="${SUDO_USER:-$USER}"
+uid_value="$(id -u "$target_user")"
+gid_value="$(id -g "$target_user")"
+common_opts="noatime,uid=${uid_value},gid=${gid_value},metadata,umask=22,fmask=11"
+
+is_mounted() {
+  local mountpoint="$1"
+  awk -v mp="$mountpoint" '$2 == mp { found=1 } END { exit found ? 0 : 1 }' /proc/mounts
+}
+
+for raw_drive in "$@"; do
+  drive="${raw_drive,,}"
+
+  if [[ ! "$drive" =~ ^[a-z]$ ]]; then
+    echo "Invalid drive letter: $raw_drive" >&2
+    exit 1
+  fi
+
+  upper_drive="${drive^^}"
+  mountpoint="/mnt/${drive}"
+
+  if [[ ! -d "$mountpoint" ]]; then
+    sudo mkdir -p "$mountpoint"
+  fi
+
+  if is_mounted "$mountpoint"; then
+    sudo mount -o "remount,${mode},${common_opts}" "$mountpoint"
+  else
+    sudo mount -t drvfs "${upper_drive}:" "$mountpoint" -o "${mode},${common_opts}"
+  fi
+
+  echo "${upper_drive}: -> ${mode}"
+done

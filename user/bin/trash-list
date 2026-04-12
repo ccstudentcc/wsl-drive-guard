@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+trash_root="${XDG_DATA_HOME:-$HOME/.local/share}/Trash"
+info_dir="${trash_root}/info"
+files_dir="${trash_root}/files"
+
+if [[ ! -d "$info_dir" ]]; then
+  printf '%s\n' "Trash is empty."
+  exit 0
+fi
+
+printf '%-32s %-25s %s\n' "ENTRY" "DELETION DATE" "ORIGINAL PATH"
+
+shopt -s nullglob
+entries=("${info_dir}"/*.trashinfo)
+shopt -u nullglob
+
+if ((${#entries[@]} == 0)); then
+  printf '%s\n' "Trash is empty."
+  exit 0
+fi
+
+for info_path in "${entries[@]}"; do
+  entry_name="$(basename -- "${info_path%.trashinfo}")"
+  deletion_date="$(sed -n 's/^DeletionDate=//p' "$info_path" | head -n 1)"
+  original_path="$(sed -n 's/^Path=//p' "$info_path" | head -n 1)"
+
+  if [[ ! -e "${files_dir}/${entry_name}" && ! -L "${files_dir}/${entry_name}" ]]; then
+    original_path="${original_path} [missing trashed file]"
+  fi
+
+  printf '%-32s %-25s %s\n' "$entry_name" "${deletion_date:--}" "${original_path:--}"
+done

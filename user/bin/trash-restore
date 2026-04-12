@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage:
+  trash-restore <entry> [entry...]
+
+Find available entries with:
+  trash-list
+EOF
+}
+
+trash_root="${XDG_DATA_HOME:-$HOME/.local/share}/Trash"
+info_dir="${trash_root}/info"
+files_dir="${trash_root}/files"
+
+if (($# == 0)); then
+  usage >&2
+  exit 1
+fi
+
+pick_restore_target() {
+  local requested_path="$1"
+  local directory
+  local base_name
+  local candidate
+  local timestamp
+  local suffix=1
+
+  directory="$(dirname -- "$requested_path")"
+  base_name="$(basename -- "$requested_path")"
+  candidate="$requested_path"
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+
+  while [[ -e "$candidate" || -L "$candidate" ]]; do
+    candidate="${directory}/${base_name}.restored.${timestamp}.${suffix}"
+    suffix=$((suffix + 1))
+  done
+
+  printf '%s\n' "$candidate"
+}
+
+status=0
+
+for entry_name in "$@"; do
+  info_path="${info_dir}/${entry_name}.trashinfo"
+  trashed_path="${files_dir}/${entry_name}"
+
+  if [[ ! -f "$info_path" ]]; then
+    printf '%s\n' "trash-restore: missing metadata for '${entry_name}'" >&2
+    status=1
+    continue
+  fi
+
+  if [[ ! -e "$trashed_path" && ! -L "$trashed_path" ]]; then
+    printf '%s\n' "trash-restore: missing trashed file for '${entry_name}'" >&2
+    status=1
+    continue
+  fi
+
+  original_path="$(sed -n 's/^Path=//p' "$info_path" | head -n 1)"
+
+  if [[ -z "$original_path" || "${original_path#/}" == "$original_path" ]]; then
+    printf '%s\n' "trash-restore: invalid original path for '${entry_name}'" >&2
+    status=1
+    continue
+  fi
+
+  restore_path="$(pick_restore_target "$original_path")"
+  mkdir -p "$(dirname -- "$restore_path")"
+  mv -- "$trashed_path" "$restore_path"
+  rm -f -- "$info_path"
+
+  printf '%s\n' "restored '${entry_name}' -> '${restore_path}'"
+done
+
+exit "$status"

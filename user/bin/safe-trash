@@ -1,0 +1,185 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage:
+  safe-trash [options] <path> [path...]
+
+Notes:
+  - Interactive-shell rm is redirected here.
+  - Files are moved into ~/.local/share/Trash instead of being deleted.
+  - Common rm options like -f, -i, -r, -R, -d, -v are accepted.
+EOF
+}
+
+trash_root="${XDG_DATA_HOME:-$HOME/.local/share}/Trash"
+files_dir="${trash_root}/files"
+info_dir="${trash_root}/info"
+
+force=0
+interactive=0
+prompt_once=0
+verbose=0
+status=0
+targets=()
+stop_opts=0
+
+parse_short_options() {
+  local opt_string="$1"
+  local i
+  local opt
+
+  for ((i = 0; i < ${#opt_string}; i++)); do
+    opt="${opt_string:i:1}"
+
+    case "$opt" in
+      f)
+        force=1
+        ;;
+      i)
+        interactive=1
+        ;;
+      I)
+        prompt_once=1
+        ;;
+      v)
+        verbose=1
+        ;;
+      r|R|d)
+        ;;
+      *)
+        printf '%s\n' "safe-trash: unsupported option -${opt}" >&2
+        exit 1
+        ;;
+    esac
+  done
+}
+
+while (($# > 0)); do
+  case "$1" in
+    --help)
+      usage
+      exit 0
+      ;;
+    --force)
+      force=1
+      ;;
+    --interactive)
+      interactive=1
+      ;;
+    --verbose)
+      verbose=1
+      ;;
+    --)
+      stop_opts=1
+      ;;
+    -*)
+      if ((stop_opts)); then
+        targets+=("$1")
+      else
+        parse_short_options "${1#-}"
+      fi
+      ;;
+    *)
+      targets+=("$1")
+      ;;
+  esac
+  shift
+done
+
+if ((${#targets[@]} == 0)); then
+  if ((force)); then
+    exit 0
+  fi
+
+  usage >&2
+  exit 1
+fi
+
+mkdir -p "$files_dir" "$info_dir"
+
+if ((prompt_once)); then
+  read -r -p "Move ${#targets[@]} item(s) to trash? [y/N] " reply
+  if [[ ! "$reply" =~ ^([Yy]|[Yy][Ee][Ss])$ ]]; then
+    exit 0
+  fi
+fi
+
+trash_name_for() {
+  local base_name="$1"
+  local candidate="$base_name"
+  local suffix=1
+  local timestamp
+
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+
+  while [[ -e "${files_dir}/${candidate}" || -e "${info_dir}/${candidate}.trashinfo" ]]; do
+    candidate="${base_name}.${timestamp}.${suffix}"
+    suffix=$((suffix + 1))
+  done
+
+  printf '%s\n' "$candidate"
+}
+
+absolute_path_for() {
+  local raw_path="$1"
+
+  if command -v realpath >/dev/null 2>&1; then
+    realpath -sm -- "$raw_path"
+  elif [[ "$raw_path" == /* ]]; then
+    printf '%s\n' "$raw_path"
+  else
+    printf '%s/%s\n' "$PWD" "$raw_path"
+  fi
+}
+
+write_trashinfo() {
+  local info_path="$1"
+  local original_path="$2"
+
+  cat >"$info_path" <<EOF
+[Trash Info]
+Path=$original_path
+DeletionDate=$(date -Iseconds)
+EOF
+}
+
+for target in "${targets[@]}"; do
+  if [[ "$target" == "/" || "$target" == "." || "$target" == ".." ]]; then
+    printf '%s\n' "safe-trash: refusing to trash ${target}" >&2
+    status=1
+    continue
+  fi
+
+  if [[ ! -e "$target" && ! -L "$target" ]]; then
+    if ((force)); then
+      continue
+    fi
+
+    printf '%s\n' "safe-trash: cannot access '${target}'" >&2
+    status=1
+    continue
+  fi
+
+  if ((interactive)); then
+    read -r -p "Move '${target}' to trash? [y/N] " reply
+    if [[ ! "$reply" =~ ^([Yy]|[Yy][Ee][Ss])$ ]]; then
+      continue
+    fi
+  fi
+
+  original_path="$(absolute_path_for "$target")"
+  trash_name="$(trash_name_for "$(basename -- "$target")")"
+  trashed_path="${files_dir}/${trash_name}"
+  info_path="${info_dir}/${trash_name}.trashinfo"
+
+  mv -- "$target" "$trashed_path"
+  write_trashinfo "$info_path" "$original_path"
+
+  if ((verbose)); then
+    printf '%s\n' "trashed '${original_path}' -> '${trashed_path}'"
+  fi
+done
+
+exit "$status"

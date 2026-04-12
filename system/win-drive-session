@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage:
+  win-drive-session rw <drive> [drive...]
+
+Example:
+  win-drive-session rw c
+  win-drive-session rw d e
+
+This opens a nested interactive shell, keeps the selected drives writable for
+that shell only, and restores them to read-only when the shell exits.
+EOF
+}
+
+if [[ $# -lt 2 ]]; then
+  usage >&2
+  exit 1
+fi
+
+mode="$1"
+shift
+
+if [[ "$mode" != "rw" ]]; then
+  printf '%s\n' "win-drive-session only supports temporary rw sessions." >&2
+  usage >&2
+  exit 1
+fi
+
+drives=()
+for raw_drive in "$@"; do
+  drive="${raw_drive,,}"
+
+  if [[ ! "$drive" =~ ^[a-z]$ ]]; then
+    printf '%s\n' "Invalid drive letter: ${raw_drive}" >&2
+    exit 1
+  fi
+
+  drives+=("$drive")
+done
+
+applied=0
+
+cleanup() {
+  if ((applied)); then
+    if ! win-drive-mode ro "${drives[@]}"; then
+      printf '%s\n' "Warning: failed to restore read-only mode for: ${drives[*]}" >&2
+      return 1
+    fi
+  fi
+}
+
+handle_signal() {
+  local signal_name="$1"
+  trap - INT TERM
+  cleanup || true
+  kill "-${signal_name}" "$$"
+}
+
+trap 'handle_signal INT' INT
+trap 'handle_signal TERM' TERM
+
+printf 'Opening temporary rw shell for: %s\n' "${drives[*]}"
+win-drive-mode rw "${drives[@]}"
+applied=1
+
+export WSL_DRIVE_SESSION_DRIVES
+WSL_DRIVE_SESSION_DRIVES="$(IFS=,; printf '%s' "${drives[*]}")"
+
+printf 'Temporary rw shell is ready for: %s\n' "${drives[*]}"
+printf '%s\n' "Run 'exit' to restore read-only mode."
+
+shell_status=0
+"${SHELL:-/bin/bash}" -i || shell_status=$?
+
+cleanup_status=0
+cleanup || cleanup_status=$?
+
+if ((shell_status != 0)); then
+  exit "$shell_status"
+fi
+
+exit "$cleanup_status"
