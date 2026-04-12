@@ -33,6 +33,8 @@ The project is split into two layers:
 
 ```text
 .
+├── CHANGELOG.md
+├── LICENSE
 ├── install.sh
 ├── uninstall.sh
 ├── system/
@@ -56,6 +58,11 @@ The project is split into two layers:
 └── docs/
     └── WSL_ISOLATION_RECOVERY_LOG.md
 ```
+
+## Project Metadata
+
+- license: [MIT](LICENSE)
+- changelog: [CHANGELOG.md](CHANGELOG.md)
 
 ## Quick Start
 
