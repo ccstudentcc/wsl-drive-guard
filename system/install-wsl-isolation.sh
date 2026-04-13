@@ -175,8 +175,8 @@ main() {
   echo "  1. In Windows PowerShell, run: wsl --shutdown"
   echo "  2. Reopen WSL"
   echo "  3. Check default mount mode with: win-drive-status"
-  echo "  4. Temporarily enable write access with: win-drive-mode rw c"
-  echo "  5. Prefer temporary rw shells with: win-drive-session rw c"
+  echo "  4. Temporarily enable write access with: sudo win-drive-mode rw c"
+  echo "  5. Prefer temporary rw shells with: sudo win-drive-session rw c"
 }
 
 main "$@"

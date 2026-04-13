@@ -24,15 +24,42 @@ load_config() {
 usage() {
   cat <<'EOF'
 Usage:
-  win-drive-session rw <drive> [drive...]
+  sudo win-drive-session rw <drive> [drive...]
 
 Example:
-  win-drive-session rw c
-  win-drive-session rw d e
+  sudo win-drive-session rw c
+  sudo win-drive-session rw d e
 
 This opens a nested interactive shell, keeps the selected drives writable for
 that shell only, and restores them to read-only when the shell exits.
 EOF
+}
+
+require_root() {
+  if ((EUID != 0)); then
+    printf '%s\n' "win-drive-session changes mount state and must be run with sudo." >&2
+    usage >&2
+    exit 1
+  fi
+}
+
+drive_mode_cmd() {
+  printf '%s\n' "${SCRIPT_DIR}/win-drive-mode"
+}
+
+open_session_shell() {
+  local shell_status=0
+
+  if [[ -n "${SUDO_USER:-}" ]] && [[ "$SUDO_USER" != "root" ]]; then
+    local shell_path=""
+    shell_path="$(getent passwd "$SUDO_USER" | cut -d: -f7)"
+    shell_path="${shell_path:-/bin/bash}"
+    sudo -H --preserve-env=WSL_DRIVE_SESSION_DRIVES -u "$SUDO_USER" -- "$shell_path" -i || shell_status=$?
+  else
+    "${SHELL:-/bin/bash}" -i || shell_status=$?
+  fi
+
+  return "$shell_status"
 }
 
 if [[ $# -lt 2 ]]; then
@@ -48,6 +75,8 @@ if [[ "$mode" != "rw" ]]; then
   usage >&2
   exit 1
 fi
+
+require_root
 
 load_config
 
@@ -67,7 +96,7 @@ applied=0
 
 cleanup() {
   if ((applied)); then
-    if ! win-drive-mode ro "${drives[@]}"; then
+    if ! "$(drive_mode_cmd)" ro "${drives[@]}"; then
       printf '%s\n' "Warning: failed to restore read-only mode for: ${drives[*]}" >&2
       return 1
     fi
@@ -85,7 +114,7 @@ trap 'handle_signal INT' INT
 trap 'handle_signal TERM' TERM
 
 printf 'Opening temporary rw shell for: %s\n' "${drives[*]}"
-win-drive-mode rw "${drives[@]}"
+"$(drive_mode_cmd)" rw "${drives[@]}"
 applied=1
 
 export WSL_DRIVE_SESSION_DRIVES
@@ -95,7 +124,7 @@ printf 'Temporary rw shell is ready for: %s\n' "${drives[*]}"
 printf '%s\n' "Run 'exit' to restore read-only mode."
 
 shell_status=0
-"${SHELL:-/bin/bash}" -i || shell_status=$?
+open_session_shell || shell_status=$?
 
 cleanup_status=0
 cleanup || cleanup_status=$?

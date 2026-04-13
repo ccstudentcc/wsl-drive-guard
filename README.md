@@ -20,6 +20,8 @@ The project is split into two layers:
 - automatic rendering of managed `/etc/wsl.conf`
 - automatic rendering of managed `/etc/fstab`
 
+`win-drive-mode` and `win-drive-session` change mount state and must be run with `sudo`.
+
 ### User layer
 
 - prompt marker when you work under Windows-mounted paths
@@ -232,14 +234,14 @@ win-drive-status
 Temporarily switch a drive:
 
 ```bash
-win-drive-mode rw c
-win-drive-mode ro c
+sudo win-drive-mode rw c
+sudo win-drive-mode ro c
 ```
 
 Prefer a temporary writable sub-shell:
 
 ```bash
-win-drive-session rw c
+sudo win-drive-session rw c
 exit
 ```
 
@@ -409,7 +411,7 @@ win-drive-status
 If needed, restore it directly:
 
 ```bash
-win-drive-mode ro c
+sudo win-drive-mode ro c
 ```
 
 If this happens repeatedly, reinstall the system layer and reopen WSL:
@@ -428,7 +430,7 @@ wsl --shutdown
 
 That can happen with shell line editors or readline enhancements. The safer pattern is:
 
-1. Run `win-drive-session rw c`
+1. Run `sudo win-drive-session rw c`
 2. Wait for the new prompt
 3. Type the risky commands one by one
 4. Run `exit`

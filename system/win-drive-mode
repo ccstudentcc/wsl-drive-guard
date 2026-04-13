@@ -24,14 +24,22 @@ load_config() {
 usage() {
   cat <<'EOF'
 Usage:
-  win-drive-mode ro <drive> [drive...]
-  win-drive-mode rw <drive> [drive...]
+  sudo win-drive-mode ro <drive> [drive...]
+  sudo win-drive-mode rw <drive> [drive...]
 
 Examples:
-  win-drive-mode rw c
-  win-drive-mode ro c
-  win-drive-mode rw d e
+  sudo win-drive-mode rw c
+  sudo win-drive-mode ro c
+  sudo win-drive-mode rw d e
 EOF
+}
+
+require_root() {
+  if ((EUID != 0)); then
+    printf '%s\n' "win-drive-mode changes mount state and must be run with sudo." >&2
+    usage >&2
+    exit 1
+  fi
 }
 
 if [[ $# -lt 2 ]]; then
@@ -51,6 +59,8 @@ case "$mode" in
     exit 1
     ;;
 esac
+
+require_root
 
 target_user="${SUDO_USER:-$USER}"
 uid_value="$(id -u "$target_user")"
@@ -77,13 +87,13 @@ for raw_drive in "$@"; do
   mountpoint="${WSL_GUARD_MOUNT_ROOT%/}/${drive}"
 
   if [[ ! -d "$mountpoint" ]]; then
-    sudo mkdir -p "$mountpoint"
+    mkdir -p "$mountpoint"
   fi
 
   if is_mounted "$mountpoint"; then
-    sudo mount -o "remount,${mode},${common_opts}" "$mountpoint"
+    mount -o "remount,${mode},${common_opts}" "$mountpoint"
   else
-    sudo mount -t drvfs "${upper_drive}:" "$mountpoint" -o "${mode},${common_opts}"
+    mount -t drvfs "${upper_drive}:" "$mountpoint" -o "${mode},${common_opts}"
   fi
 
   echo "${upper_drive}: -> ${mode}"
