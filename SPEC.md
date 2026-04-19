@@ -2,22 +2,23 @@
 
 ## Goal
 
-Turn `wsl-drive-guard` into a reusable toolkit that can be installed, configured,
-and uninstalled cleanly on another WSL machine without editing the scripts by
-hand.
+Keep `wsl-drive-guard` reusable as a cleanly installable toolkit, while extending
+the user layer from bash-only support to a shared-core design with bash and zsh
+entry points.
 
 ## Scope
 
 - Add repository-level configuration with sensible defaults
 - Add install entry points that can install both the system layer and the user layer
 - Add uninstall entry points for both layers
+- Refactor the user guard into a shared core plus bash and zsh shell entry points
 - Keep current default behavior unchanged unless the config is edited
 - Expand the README with practical setup guidance and troubleshooting
 
 ## Non-Goals
 
 - No GUI configuration layer
-- No support for shells other than bash in this pass
+- No support for shells other than bash and zsh in this pass
 - No change to the default Windows interop setting
 
 ## Expected Configuration Surface
@@ -33,7 +34,7 @@ hand.
   - whether `cp` / `mv` confirmation is enabled
   - whether interactive `rm` is redirected into Trash
   - Trash directory location
-  - install targets for `~/.bashrc.d` and `~/.local/bin`
+  - install targets for `~/.bashrc.d`, `~/.zshrc.d`, shared user libs, and `~/.local/bin`
 
 ## Acceptance
 
@@ -42,6 +43,6 @@ hand.
 - Existing defaults still give:
   - read-only `C:`, `D:`, `E:`
   - `win-drive-mode`, `win-drive-session`, `win-drive-status`
-  - prompt markers and interactive command safety rails
+  - prompt markers and interactive command safety rails in bash and zsh
   - `safe-trash`, `trash-list`, `trash-restore`
 - README documents install, uninstall, config, daily usage, and troubleshooting

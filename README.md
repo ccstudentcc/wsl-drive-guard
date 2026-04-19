@@ -8,7 +8,7 @@ Reusable WSL tooling for two related goals:
 The project is split into two layers:
 
 - `system/`: WSL mount isolation and drive mode tools, installed with `sudo`
-- `user/`: prompt markers, Windows-drive write confirmations, and Trash helpers for interactive shells
+- `user/`: prompt markers, Windows-drive write confirmations, and Trash helpers for interactive bash and zsh shells
 
 ## What It Provides
 
@@ -53,6 +53,8 @@ The project is split into two layers:
 │   ├── uninstall-user-guard.sh
 │   ├── user.conf
 │   ├── bashrc.d/30-wsl-guard.sh
+│   ├── zshrc.d/30-wsl-guard.zsh
+│   ├── lib/wsl-guard-core.sh
 │   └── bin/
 │       ├── safe-trash
 │       ├── trash-list
@@ -97,7 +99,22 @@ Then reopen WSL and verify:
 ```bash
 win-drive-status
 source ~/.bashrc
+source ~/.zshrc
 ```
+
+If you use zsh and your `~/.zshrc` does not already load `~/.zshrc.d/*.zsh`,
+add this once:
+
+```zsh
+if [ -d "$HOME/.zshrc.d" ]; then
+  for f in "$HOME/.zshrc.d/"*.zsh; do
+    [ -r "$f" ] && . "$f"
+  done
+fi
+```
+
+If you also use a prompt theme such as Powerlevel10k, load `~/.zshrc.d/*.zsh`
+after the theme setup so the guard prefix can stay visible.
 
 ## Uninstall
 
@@ -204,8 +221,12 @@ Main options:
   Default: `/mnt`
 - `WSL_GUARD_TRASH_ROOT`
   Default: `~/.local/share/Trash`
+- `WSL_GUARD_USER_LIB_DIR`
+  Default: `~/.config/wsl-drive-guard/lib`
 - `WSL_GUARD_USER_BASHRC_D`
   Default: `~/.bashrc.d`
+- `WSL_GUARD_USER_ZSHRC_D`
+  Default: `~/.zshrc.d`
 - `WSL_GUARD_USER_BIN_DIR`
   Default: `~/.local/bin`
 
@@ -221,6 +242,7 @@ After editing the user config, usually this is enough:
 
 ```bash
 source ~/.bashrc
+source ~/.zshrc
 ```
 
 ## Daily Usage
@@ -275,8 +297,11 @@ The installer:
 The installer:
 
 - installs `30-wsl-guard.sh` into the configured `~/.bashrc.d`
+- installs `30-wsl-guard.zsh` into the configured `~/.zshrc.d`
+- installs `wsl-guard-core.sh` into the configured shared user lib directory
 - installs Trash helpers into the configured user bin directory
 - installs a default config into `~/.config/wsl-drive-guard/user.conf` if that file does not already exist
+- does not edit `~/.bashrc` or `~/.zshrc` for you
 
 ## FAQ
 
@@ -310,7 +335,7 @@ This project takes the softer path: keep interop, but reduce accidental writes.
 
 ### Does interactive `rm` affect scripts?
 
-No. The guard lives in `bashrc.d` and only affects interactive shells that load the guard script.
+No. The guard lives in shell startup snippets and only affects interactive shells that load the guard script.
 
 Non-interactive scripts still use the regular system `rm` unless you intentionally replace it elsewhere.
 
@@ -359,14 +384,16 @@ If needed, run:
 
 Check that:
 
-- your shell is bash
 - `~/.bashrc` loads `~/.bashrc.d/*.sh`
+- `~/.zshrc` loads `~/.zshrc.d/*.zsh`
+- for zsh prompt themes, the `~/.zshrc.d` loader runs after the theme setup
 - `WSL_GUARD_ENABLE_PROMPT="1"` in `~/.config/wsl-drive-guard/user.conf`
 
 Then reload:
 
 ```bash
 source ~/.bashrc
+source ~/.zshrc
 ```
 
 ### `rm` does not go to Trash
@@ -398,6 +425,7 @@ Try:
 type cp
 type mv
 source ~/.bashrc
+source ~/.zshrc
 ```
 
 ### `win-drive-session` exits but the drive stays writable
@@ -446,6 +474,7 @@ For system config:
 For user config:
 
 - run `source ~/.bashrc`
+- run `source ~/.zshrc`
 
 ## Validation
 
@@ -454,5 +483,6 @@ Recommended checks after editing the repository:
 ```bash
 bash -n install.sh uninstall.sh
 bash -n system/*.sh
-bash -n user/*.sh user/bin/*
+bash -n user/*.sh user/bin/* user/bashrc.d/*.sh user/lib/*.sh
+zsh -n user/zshrc.d/*.zsh
 ```
