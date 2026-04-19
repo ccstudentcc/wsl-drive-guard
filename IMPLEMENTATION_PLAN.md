@@ -34,8 +34,18 @@ Status: completed
 
 Status: completed
 
+## Stage 5
+
+- Split user guard into a shared core plus shell-specific thin entry points
+- Add zsh entry-point installation and uninstall support
+- Update docs and task tracking for bash + zsh support
+
+Status: completed
+
 ## Validation
 
 - `bash -n` for all shell scripts
+- `zsh -n` for zsh entry scripts
 - minimal config rendering check
-- install/uninstall dry-run style checks where possible without mutating the live system
+- user-layer install and source checks in a repo-local temporary home for bash and zsh
+- `rm -> safe-trash` verification in the temporary home for bash and zsh

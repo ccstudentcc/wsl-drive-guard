@@ -1,9 +1,8 @@
-# WSL Windows-drive safety helpers for interactive bash shells.
+# WSL Windows-drive safety helpers for interactive zsh shells.
 
 __wsl_guard_default_config_path="${XDG_CONFIG_HOME:-$HOME/.config}/wsl-drive-guard/user.conf"
 
 if [[ -f "$__wsl_guard_default_config_path" ]]; then
-  # shellcheck disable=SC1090
   . "$__wsl_guard_default_config_path"
 fi
 
@@ -17,58 +16,49 @@ else
   return 1
 fi
 
-__WSL_GUARD_BASE_PS1="${__WSL_GUARD_BASE_PS1:-$PS1}"
+typeset -g __WSL_GUARD_BASE_PROMPT="${__WSL_GUARD_BASE_PROMPT:-$PROMPT}"
 
-__wsl_guard_format_bash_segment() {
+__wsl_guard_format_zsh_segment() {
   local text="$1"
   local color="$2"
 
-  printf '\\[\\033[1;%sm\\][%s]\\[\\033[0m\\] ' "$color" "$text"
+  printf '%%F{%s}[%s]%%f ' "$color" "$text"
 }
 
-__wsl_guard_update_prompt() {
+__wsl_guard_update_prompt_zsh() {
   local prefix=""
   local session_text=""
   local drive=""
   local mode=""
-  local color='33'
+  local color="yellow"
 
   if ((WSL_GUARD_ENABLE_PROMPT == 0)); then
-    PS1="${__WSL_GUARD_BASE_PS1}"
+    PROMPT="${__WSL_GUARD_BASE_PROMPT}"
     return
   fi
 
   session_text="$(__wsl_guard_session_marker_text)"
   if [[ -n "$session_text" ]]; then
-    prefix+="$(__wsl_guard_format_bash_segment "$session_text" 31)"
+    prefix+="$(__wsl_guard_format_zsh_segment "$session_text" red)"
   fi
 
   drive="$(__wsl_guard_current_windows_drive)"
   if [[ -n "$drive" ]]; then
     mode="$(__wsl_guard_mount_mode "$drive")"
     if [[ "$mode" == "RW" ]]; then
-      color='31'
+      color="red"
     fi
-    prefix+="$(__wsl_guard_format_bash_segment "$(__wsl_guard_drive_marker_text "$drive" "$mode")" "$color")"
+    prefix+="$(__wsl_guard_format_zsh_segment "$(__wsl_guard_drive_marker_text "$drive" "$mode")" "$color")"
   fi
 
-  PS1="${prefix}${__WSL_GUARD_BASE_PS1}"
+  PROMPT="${prefix}${__WSL_GUARD_BASE_PROMPT}"
 }
 
-__wsl_guard_install_prompt_hook() {
-  local hook="__wsl_guard_update_prompt"
+autoload -Uz add-zsh-hook
 
-  case ";${PROMPT_COMMAND:-};" in
-    *";${hook};"*)
-      ;;
-    ";;")
-      PROMPT_COMMAND="${hook}"
-      ;;
-    *)
-      PROMPT_COMMAND="${hook};${PROMPT_COMMAND}"
-      ;;
-  esac
-}
+if [[ " ${precmd_functions[*]-} " != *" __wsl_guard_update_prompt_zsh "* ]]; then
+  add-zsh-hook precmd __wsl_guard_update_prompt_zsh
+fi
 
 cp() {
   if ((WSL_GUARD_ENABLE_COPY_MOVE_CONFIRM)); then
@@ -102,5 +92,3 @@ rm() {
   __wsl_guard_warn_rm_targets "$@" || return $?
   "$trash_cmd" "$@"
 }
-
-__wsl_guard_install_prompt_hook

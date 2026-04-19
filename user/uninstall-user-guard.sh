@@ -51,6 +51,8 @@ load_config
 
 rm -f \
   "${WSL_GUARD_USER_BASHRC_D}/30-wsl-guard.sh" \
+  "${WSL_GUARD_USER_ZSHRC_D}/30-wsl-guard.zsh" \
+  "${WSL_GUARD_USER_LIB_DIR}/wsl-guard-core.sh" \
   "${WSL_GUARD_USER_BIN_DIR}/safe-trash" \
   "${WSL_GUARD_USER_BIN_DIR}/trash-list" \
   "${WSL_GUARD_USER_BIN_DIR}/trash-restore"
