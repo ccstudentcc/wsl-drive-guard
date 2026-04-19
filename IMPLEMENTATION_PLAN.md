@@ -1,51 +1,49 @@
 # IMPLEMENTATION PLAN
 
-## Stage 1
+## Active Plan
 
-- Add task tracking files
-- Define config layout and default values
+- Detailed execution plan: `docs/superpowers/plans/2026-04-19-trash-backend-redesign.md`
+- Approved design source: `docs/superpowers/specs/2026-04-19-trash-backend-redesign-design.md`
 
-Status: completed
+## Planned Stages
 
-## Stage 2
+### Stage 1
 
-- Add top-level install script
-- Add top-level uninstall script
-- Add system uninstall script
-- Add user uninstall script
+- Align root task docs to the trash-backend redesign
+- Introduce the SQLite-backed trash backend scaffolding and schema bootstrap
 
-Status: completed
+Status: pending
 
-## Stage 3
+### Stage 2
 
-- Update system scripts to read config instead of relying on hard-coded values
-- Update user scripts to read config where appropriate
+- Implement backend put/list/restore behavior with staging consistency and
+  legacy import
 
-Status: completed
+Status: pending
 
-## Stage 4
+### Stage 3
 
-- Expand README with:
-  - install flows
-  - config reference
-  - uninstall flows
-  - FAQ
-  - troubleshooting
+- Add purge, stats, bounded housekeeping, and retention configuration
 
-Status: completed
+Status: pending
 
-## Stage 5
+### Stage 4
 
-- Split user guard into a shared core plus shell-specific thin entry points
-- Add zsh entry-point installation and uninstall support
-- Update docs and task tracking for bash + zsh support
+- Wire the user-layer shell wrappers and compatibility commands into the new
+  backend without widening native command semantics
 
-Status: completed
+Status: pending
 
-## Validation
+### Stage 5
 
-- `bash -n` for all shell scripts
-- `zsh -n` for zsh entry scripts
-- minimal config rendering check
-- user-layer install and source checks in a repo-local temporary home for bash and zsh
-- `rm -> safe-trash` verification in the temporary home for bash and zsh
+- Update install/uninstall flows, user config, README, and validation coverage
+
+Status: pending
+
+## Validation Focus
+
+- Static shell checks for bash/zsh scripts
+- Direct backend command checks for put/list/restore/purge/stats
+- Crash-consistency and orphan-reconciliation coverage
+- Legacy-import coverage for pre-existing `files/` + `info/*.trashinfo`
+- Interactive bash/zsh wrapper checks, including `command ...` bypass behavior
